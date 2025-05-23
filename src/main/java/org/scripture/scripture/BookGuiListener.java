@@ -34,6 +34,42 @@ public class BookGuiListener implements Listener {
         Inventory gui = plugin.getPlayerGui(uuid);
         if (gui == null) return;
 
+        // Aggressive check for DOUBLE_CLICK interactions with "shop:coin"
+        // This is to prevent any potential duplication or unintended merging of coins
+        // when the COIN_SLOT in the GUI is active and contains a "shop:coin".
+        if (e.getClick() == ClickType.DOUBLE_CLICK) {
+            ItemStack guiCoin = gui.getItem(GuiUtils.COIN_SLOT);
+            if (guiCoin != null) {
+                CustomStack customGuiCoin = CustomStack.byItemStack(guiCoin);
+                if (customGuiCoin != null && "shop:coin".equals(customGuiCoin.getNamespacedID())) {
+                    // GUI's COIN_SLOT has a "shop:coin". Now check player's items.
+                    ItemStack currentItem = e.getCurrentItem();
+                    ItemStack cursorItem = e.getCursor();
+
+                    boolean currentIsCoin = false;
+                    if (currentItem != null) {
+                        CustomStack customCurrent = CustomStack.byItemStack(currentItem);
+                        if (customCurrent != null && "shop:coin".equals(customCurrent.getNamespacedID())) {
+                            currentIsCoin = true;
+                        }
+                    }
+
+                    boolean cursorIsCoin = false;
+                    if (cursorItem != null) {
+                        CustomStack customCursor = CustomStack.byItemStack(cursorItem);
+                        if (customCursor != null && "shop:coin".equals(customCursor.getNamespacedID())) {
+                            cursorIsCoin = true;
+                        }
+                    }
+
+                    if (currentIsCoin || cursorIsCoin) {
+                        e.setCancelled(true);
+                        return; // Immediately stop processing this event
+                    }
+                }
+            }
+        }
+
         int slot = e.getSlot();
         InventoryAction action = e.getAction();
         ClickType click = e.getClick();
@@ -48,6 +84,16 @@ public class BookGuiListener implements Listener {
                         handleCoinInsertion(gui);
                     }
                 }.runTaskLater(plugin, 1);
+            }
+            // Prevent players from pulling items from the protected COIN_SLOT via double-click in their own inventory
+            if (click == ClickType.DOUBLE_CLICK &&
+                    gui.getItem(GuiUtils.COIN_SLOT) != null &&
+                    CustomStack.byItemStack(gui.getItem(GuiUtils.COIN_SLOT)) != null &&
+                    "shop:coin".equals(CustomStack.byItemStack(gui.getItem(GuiUtils.COIN_SLOT)).getNamespacedID()) &&
+                    e.getCurrentItem() != null &&
+                    CustomStack.byItemStack(e.getCurrentItem()) != null &&
+                    "shop:coin".equals(CustomStack.byItemStack(e.getCurrentItem()).getNamespacedID())) {
+                e.setCancelled(true);
             }
             return;
         }
