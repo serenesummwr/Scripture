@@ -1,6 +1,7 @@
 package org.scripture.scripture;
 
 import dev.lone.itemsadder.api.CustomStack;
+import dev.lone.itemsadder.api.FontImages.TexturedInventoryWrapper;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -14,17 +15,38 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.scripture.scripture.gui.PaperToCoinHolder;
 import org.scripture.scripture.util.GuiUtils;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 public class BookGuiListener implements Listener {
     private final Scripture plugin;
+    // Track which players have textured GUIs open
+    private final Map<UUID, PaperToCoinHolder> activeTexturedGuis = new HashMap<>();
 
     public BookGuiListener(Scripture plugin) {
         this.plugin = plugin;
     }
 
+    /**
+     * Register a textured GUI for a player
+     */
+    public void registerTexturedGui(Player player, PaperToCoinHolder holder) {
+        activeTexturedGuis.put(player.getUniqueId(), holder);
+    }
+
+    /**
+     * Unregister a textured GUI for a player
+     */
+    public void unregisterTexturedGui(Player player) {
+        activeTexturedGuis.remove(player.getUniqueId());
+    }
+
     @EventHandler
     public void onInventoryClick(InventoryClickEvent e) {
         // Check if this is our custom GUI
-        if (!(e.getInventory().getHolder() instanceof PaperToCoinHolder holder)) {
+        PaperToCoinHolder holder = getHolderFromEvent(e);
+        if (holder == null) {
             return;
         }
 
@@ -88,7 +110,8 @@ public class BookGuiListener implements Listener {
 
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent e) {
-        if (!(e.getInventory().getHolder() instanceof PaperToCoinHolder holder)) {
+        PaperToCoinHolder holder = getHolderFromCloseEvent(e);
+        if (holder == null) {
             return;
         }
 
@@ -97,6 +120,45 @@ public class BookGuiListener implements Listener {
         }
 
         holder.handleClose();
+    }
+
+    /**
+     * Gets the PaperToCoinHolder from an InventoryClickEvent
+     */
+    private PaperToCoinHolder getHolderFromEvent(InventoryClickEvent e) {
+        // First, check if it's directly our holder
+        if (e.getInventory().getHolder() instanceof PaperToCoinHolder) {
+            return (PaperToCoinHolder) e.getInventory().getHolder();
+        }
+
+        // Check if it's a TexturedInventoryWrapper
+        if (e.getInventory().getHolder() instanceof TexturedInventoryWrapper) {
+            // Look up the holder from our registry
+            if (e.getWhoClicked() instanceof Player player) {
+                return activeTexturedGuis.get(player.getUniqueId());
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Gets the PaperToCoinHolder from an InventoryCloseEvent
+     */
+    private PaperToCoinHolder getHolderFromCloseEvent(InventoryCloseEvent e) {
+        // Similar logic to getHolderFromEvent
+        if (e.getInventory().getHolder() instanceof PaperToCoinHolder) {
+            return (PaperToCoinHolder) e.getInventory().getHolder();
+        }
+
+        // Handle TexturedInventoryWrapper case
+        if (e.getInventory().getHolder() instanceof TexturedInventoryWrapper) {
+            if (e.getPlayer() instanceof Player player) {
+                return activeTexturedGuis.get(player.getUniqueId());
+            }
+        }
+
+        return null;
     }
 
     private void handlePaperSlotClick(InventoryClickEvent e, PaperToCoinHolder holder) {
