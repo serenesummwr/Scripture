@@ -11,8 +11,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-// Scripture import removed as it's no longer needed
-import org.scripture.scripture.holder.BookGuiHolder; // Added BookGuiHolder import
+import org.scripture.scripture.Scripture;
 
 public class GuiUtils {
     // Constants for GUI
@@ -24,23 +23,19 @@ public class GuiUtils {
     /**
      * Opens the Paper-to-Coin GUI
      */
-    public static void openPaperToCoinGui(Player player) { // Scripture plugin parameter removed
-        BookGuiHolder holder = new BookGuiHolder(GUI_SIZE, GUI_TITLE); // Create GUI with BookGuiHolder
-        Inventory gui = holder.getInventory(); // Get the inventory from the holder
-
-        // Fill with glass panes, avoiding PAPER_SLOT and COIN_SLOT
+    public static void openPaperToCoinGui(Scripture plugin, Player player) {
+        Inventory gui = Bukkit.createInventory(null, GUI_SIZE, GUI_TITLE);
+        // Fill with glass panes
         ItemStack pane = createGuiItem(Material.LIGHT_GRAY_STAINED_GLASS_PANE, " ");
         for (int i = 0; i < GUI_SIZE; i++) {
-            if (i != PAPER_SLOT && i != COIN_SLOT) { // Avoid overwriting slots
-                gui.setItem(i, pane);
-            }
+            gui.setItem(i, pane);
         }
-        // Ensure paper and coin slots are initially empty
-        gui.setItem(PAPER_SLOT, null); // Explicitly set to null
-        gui.setItem(COIN_SLOT, null);  // Explicitly set to null
+        // Clear paper and coin slots
+        gui.clear(PAPER_SLOT);
+        gui.clear(COIN_SLOT);
 
         player.openInventory(gui);
-        // plugin.registerPlayerGui line removed
+        plugin.registerPlayerGui(player.getUniqueId(), gui);
     }
 
     /**

@@ -1,14 +1,14 @@
 package org.scripture.scripture;
 
 import org.bukkit.plugin.java.JavaPlugin;
-import org.scripture.scripture.util.GuiUtils; // GuiUtils is still used
+import org.bukkit.inventory.Inventory;
+import org.scripture.scripture.util.GuiUtils;
 
-// All java.util imports (Map, HashMap, Set, HashSet, Collections, UUID) removed as they are no longer used.
-// org.bukkit.inventory.Inventory import removed as it's no longer used in this file.
+import java.util.*;
 
 public final class Scripture extends JavaPlugin {
-    // private final Map<UUID, Inventory> playerGui = new HashMap<>(); // Removed
-    // private final Set<UUID> using = new HashSet<>(); // Removed
+    private final Map<UUID, Inventory> playerGui = new HashMap<>();
+    private final Set<UUID> using = new HashSet<>();
 
     @Override
     public void onEnable() {
@@ -57,12 +57,56 @@ public final class Scripture extends JavaPlugin {
     @Override
     public void onDisable() {
         // Clean up resources
-        // playerGui.clear(); // Removed
-        // using.clear(); // Removed
+        playerGui.clear();
+        using.clear();
 
         getLogger().info("Scripture plugin has been disabled.");
     }
 
-    // All GUI tracking methods (registerPlayerGui, unregisterPlayer, isUsingGui, getPlayerGui)
-    // and deprecated getters have been removed.
+    /**
+     * Registers a player's GUI in the tracking system
+     *
+     * @param uuid The player's UUID
+     * @param inventory The inventory to register
+     */
+    public void registerPlayerGui(UUID uuid, Inventory inventory) {
+        playerGui.put(uuid, inventory);
+        using.add(uuid);
+    }
+
+    /**
+     * Unregisters a player from the GUI tracking system
+     *
+     * @param uuid The player's UUID
+     */
+    public void unregisterPlayer(UUID uuid) {
+        playerGui.remove(uuid);
+        using.remove(uuid);
+    }
+
+    /**
+     * Checks if a player is using the GUI
+     *
+     * @param uuid The player's UUID
+     * @return True if the player is using the GUI
+     */
+    public boolean isUsingGui(UUID uuid) {
+        return using.contains(uuid);
+    }
+
+    /**
+     * Gets the GUI for a player
+     *
+     * @param uuid The player's UUID
+     * @return The player's GUI, or null if not found
+     */
+    public Inventory getPlayerGui(UUID uuid) {
+        return playerGui.get(uuid);
+    }
+
+    // Legacy methods for backward compatibility
+    @Deprecated
+    public Map<UUID, Inventory> getPlayerGui() { return Collections.unmodifiableMap(playerGui); }
+    @Deprecated
+    public Set<UUID> getUsing() { return Collections.unmodifiableSet(using); }
 }
