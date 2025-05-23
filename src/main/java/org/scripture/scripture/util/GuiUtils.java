@@ -11,8 +11,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.scripture.scripture.Scripture; // Restored Scripture import
-// import org.scripture.scripture.holder.BookGuiHolder; // Removed BookGuiHolder import
+import org.scripture.scripture.Scripture;
 
 public class GuiUtils {
     // Constants for GUI

@@ -19,11 +19,10 @@ public class BookTestCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!(sender instanceof Player)) {
+        if (!(sender instanceof Player player)) {
             sender.sendMessage(GuiUtils.colorize("&cOnly players can use this command!"));
             return true;
         }
-        Player player = (Player) sender;
         if (!player.hasPermission("booktest.use")) {
             player.sendMessage(GuiUtils.colorize("&cYou don't have permission to use this command!"));
             return true;
