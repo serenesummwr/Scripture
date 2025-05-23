@@ -1,8 +1,6 @@
 package org.scripture.scripture.gui;
 
 import dev.lone.itemsadder.api.CustomStack;
-import dev.lone.itemsadder.api.FontImages.FontImageWrapper;
-import dev.lone.itemsadder.api.FontImages.TexturedInventoryWrapper;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -23,7 +21,6 @@ public class PaperToCoinHolder implements InventoryHolder {
     private final Scripture plugin;
     private final Player player;
     private final Inventory inventory;
-    private TexturedInventoryWrapper texturedInventory;
 
     // Slot constants
     public static final int PAPER_SLOT = 2;
@@ -36,7 +33,6 @@ public class PaperToCoinHolder implements InventoryHolder {
         this.player = player;
         this.inventory = Bukkit.createInventory(this, GUI_SIZE, net.kyori.adventure.text.Component.text(GUI_TITLE));
         setupGui();
-        setupTexturedInventory();
     }
 
     @Override
@@ -45,48 +41,12 @@ public class PaperToCoinHolder implements InventoryHolder {
         return inventory;
     }
 
-    /**
-     * Sets up the TexturedInventoryWrapper for the GUI
-     */
-    private void setupTexturedInventory() {
-        try {
-            // Create the main background texture
-            FontImageWrapper menuGuiTexture = new FontImageWrapper("shop:enchant_menu");
 
-            // Create a list of non-null FontImageWrapper elements
-            java.util.List<FontImageWrapper> wrappers = new java.util.ArrayList<>();
-            wrappers.add(menuGuiTexture);
-
-            // Convert list to array for the constructor
-            FontImageWrapper[] wrappersArray = wrappers.toArray(new FontImageWrapper[0]);
-
-            this.texturedInventory = new TexturedInventoryWrapper(
-                    null, // Use null to let it create its own holder
-                    GUI_SIZE,
-                    -16, // Offset from the top of the screen
-                    wrappersArray
-            );
-
-            plugin.getLogger().info("TexturedInventoryWrapper successfully created.");
-        } catch (Exception e) {
-            plugin.getLogger().severe("Failed to create TexturedInventoryWrapper.");
-            e.printStackTrace();
-            this.texturedInventory = null;
-        }
-
-    }
 
     /**
      * Sets up the initial GUI layout
      */
     private void setupGui() {
-        // Fill with glass panes
-        ItemStack pane = createGlassPane();
-        for (int i = 0; i < GUI_SIZE; i++) {
-            inventory.setItem(i, pane);
-        }
-
-        // Clear the interactive slots
         inventory.clear(PAPER_SLOT);
         inventory.clear(COIN_SLOT);
     }
@@ -213,44 +173,9 @@ public class PaperToCoinHolder implements InventoryHolder {
     }
 
     /**
-     * Creates a glass pane for GUI decoration
-     */
-    private ItemStack createGlassPane() {
-        ItemStack item = new ItemStack(Material.LIGHT_GRAY_STAINED_GLASS_PANE);
-        ItemMeta meta = item.getItemMeta();
-        if (meta != null) {
-            meta.displayName(net.kyori.adventure.text.Component.text(" "));
-            item.setItemMeta(meta);
-        }
-        return item;
-    }
-
-    /**
      * Opens this GUI for the player
      */
     public void open() {
-        try {
-            if (texturedInventory != null) {
-                // Show the textured inventory directly - it manages its own inventory internally
-                texturedInventory.showInventory(player);
-                plugin.getLogger().info("TexturedInventoryWrapper successfully shown.");
-            } else {
-                // Show the inventory normally
-                player.openInventory(inventory);
-                plugin.getLogger().info("Inventory successfully shown.");
-            }
-        } catch (Exception e) {
-            plugin.getLogger().severe("Failed to show inventory.");
-            e.printStackTrace();
-            player.openInventory(inventory);
-        }
-    }
-
-    /**
-     * Gets the textured inventory wrapper (can be null if creation failed)
-     */
-
-    public TexturedInventoryWrapper getTexturedInventory() {
-        return texturedInventory;
+        player.openInventory(inventory);
     }
 }

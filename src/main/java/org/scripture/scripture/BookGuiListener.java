@@ -1,7 +1,6 @@
 package org.scripture.scripture;
 
 import dev.lone.itemsadder.api.CustomStack;
-import dev.lone.itemsadder.api.FontImages.TexturedInventoryWrapper;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -10,43 +9,23 @@ import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.inventory.Inventory; // Added import
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.scripture.scripture.gui.PaperToCoinHolder;
 import org.scripture.scripture.util.GuiUtils;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
-
 public class BookGuiListener implements Listener {
     private final Scripture plugin;
-    // Track which players have textured GUIs open
-    private final Map<UUID, PaperToCoinHolder> activeTexturedGuis = new HashMap<>();
 
     public BookGuiListener(Scripture plugin) {
         this.plugin = plugin;
     }
 
-    /**
-     * Register a textured GUI for a player
-     */
-    public void registerTexturedGui(Player player, PaperToCoinHolder holder) {
-        activeTexturedGuis.put(player.getUniqueId(), holder);
-    }
-
-    /**
-     * Unregister a textured GUI for a player
-     */
-    public void unregisterTexturedGui(Player player) {
-        activeTexturedGuis.remove(player.getUniqueId());
-    }
-
     @EventHandler
     public void onInventoryClick(InventoryClickEvent e) {
         // Check if this is our custom GUI
-        PaperToCoinHolder holder = getHolderFromEvent(e);
-        if (holder == null) {
+        if (!(e.getInventory().getHolder() instanceof PaperToCoinHolder holder)) {
             return;
         }
 
@@ -80,18 +59,66 @@ public class BookGuiListener implements Listener {
         ClickType click = e.getClick();
 
         // Handle shift-click paper insertion from player inventory
-        if (e.getClickedInventory() != holder.getInventory()) {
-            if ((action == InventoryAction.MOVE_TO_OTHER_INVENTORY && PaperToCoinHolder.isPaper(e.getCurrentItem()))
-                    || (click == ClickType.DOUBLE_CLICK && PaperToCoinHolder.isPaper(e.getCurrentItem()))) {
-                scheduleTask(() -> holder.handleCoinInsertion());
-            }
+        if (e.getClickedInventory() != holder.getInventory()) { // Click is in player's inventory
+            if (action == InventoryAction.MOVE_TO_OTHER_INVENTORY) {
+                if (PaperToCoinHolder.isPaper(e.getCurrentItem())) {
+                    e.setCancelled(true);
 
-            // Prevent players from pulling items from the protected COIN_SLOT via double-click
-            if (click == ClickType.DOUBLE_CLICK &&
-                    isShopCoin(holder.getInventory().getItem(PaperToCoinHolder.COIN_SLOT)) &&
-                    isShopCoin(e.getCurrentItem())) {
-                e.setCancelled(true);
+                    ItemStack playerClickedItem = e.getCurrentItem(); // Paper stack player is shift-clicking
+                    // isPaper check already confirmed playerClickedItem is not null and is paper.
+
+                    Inventory guiInventory = holder.getInventory();
+                    ItemStack guiPaperSlotItem = guiInventory.getItem(PaperToCoinHolder.PAPER_SLOT);
+
+                    boolean paperMoved = false;
+                    if (guiPaperSlotItem == null || guiPaperSlotItem.getType() == Material.AIR) {
+                        // PAPER_SLOT is empty, move entire stack from player
+                        // No clone needed here, we are moving the original stack
+                        guiInventory.setItem(PaperToCoinHolder.PAPER_SLOT, playerClickedItem);
+                        e.setCurrentItem(null); // Clear item from player's slot
+                        paperMoved = true;
+                    } else if (guiPaperSlotItem.isSimilar(playerClickedItem)) {
+                        // PAPER_SLOT has similar paper, try to stack
+                        int maxStackSize = guiPaperSlotItem.getMaxStackSize(); // Typically 64 for paper
+                        int currentAmountInSlot = guiPaperSlotItem.getAmount();
+                        int amountFromPlayer = playerClickedItem.getAmount();
+
+                        int transferableAmount = Math.min(amountFromPlayer, maxStackSize - currentAmountInSlot);
+
+                        if (transferableAmount > 0) {
+                            guiPaperSlotItem.setAmount(currentAmountInSlot + transferableAmount);
+                            // guiInventory.setItem(PaperToCoinHolder.PAPER_SLOT, guiPaperSlotItem); // Not strictly needed if guiPaperSlotItem is a direct reference
+
+                            playerClickedItem.setAmount(amountFromPlayer - transferableAmount);
+                            // If playerClickedItem.getAmount() becomes 0, Bukkit should handle clearing it
+                            // because e.setCurrentItem(null) would be the alternative if we weren't modifying the stack directly.
+                            // Let's be explicit for safety if Bukkit doesn't auto-clear 0-amount stacks from player inventory post-event.
+                            if (playerClickedItem.getAmount() <= 0) {
+                                e.setCurrentItem(null);
+                            }
+                            paperMoved = true;
+                        }
+                    }
+
+                    if (paperMoved) {
+                        scheduleTask(holder::handleCoinInsertion);
+                    }
+                } else {
+                    // Cancel shift-clicks for non-paper items
+                    e.setCancelled(true);
+                }
+            } else if (click == ClickType.DOUBLE_CLICK) {
+                if (PaperToCoinHolder.isPaper(e.getCurrentItem())) {
+                    scheduleTask(() -> holder.handleCoinInsertion());
+                }
+                // Prevent players from pulling items from the protected COIN_SLOT via double-click
+                if (isShopCoin(holder.getInventory().getItem(PaperToCoinHolder.COIN_SLOT)) &&
+                        isShopCoin(e.getCurrentItem())) {
+                    e.setCancelled(true);
+                }
             }
+            // If the click was in the player's inventory, we've handled it (or decided to do nothing/cancel it).
+            // No further GUI slot logic should run.
             return;
         }
 
@@ -110,8 +137,7 @@ public class BookGuiListener implements Listener {
 
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent e) {
-        PaperToCoinHolder holder = getHolderFromCloseEvent(e);
-        if (holder == null) {
+        if (!(e.getInventory().getHolder() instanceof PaperToCoinHolder holder)) {
             return;
         }
 
@@ -120,45 +146,6 @@ public class BookGuiListener implements Listener {
         }
 
         holder.handleClose();
-    }
-
-    /**
-     * Gets the PaperToCoinHolder from an InventoryClickEvent
-     */
-    private PaperToCoinHolder getHolderFromEvent(InventoryClickEvent e) {
-        // First, check if it's directly our holder
-        if (e.getInventory().getHolder() instanceof PaperToCoinHolder) {
-            return (PaperToCoinHolder) e.getInventory().getHolder();
-        }
-
-        // Check if it's a TexturedInventoryWrapper
-        if (e.getInventory().getHolder() instanceof TexturedInventoryWrapper) {
-            // Look up the holder from our registry
-            if (e.getWhoClicked() instanceof Player player) {
-                return activeTexturedGuis.get(player.getUniqueId());
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Gets the PaperToCoinHolder from an InventoryCloseEvent
-     */
-    private PaperToCoinHolder getHolderFromCloseEvent(InventoryCloseEvent e) {
-        // Similar logic to getHolderFromEvent
-        if (e.getInventory().getHolder() instanceof PaperToCoinHolder) {
-            return (PaperToCoinHolder) e.getInventory().getHolder();
-        }
-
-        // Handle TexturedInventoryWrapper case
-        if (e.getInventory().getHolder() instanceof TexturedInventoryWrapper) {
-            if (e.getPlayer() instanceof Player player) {
-                return activeTexturedGuis.get(player.getUniqueId());
-            }
-        }
-
-        return null;
     }
 
     private void handlePaperSlotClick(InventoryClickEvent e, PaperToCoinHolder holder) {
