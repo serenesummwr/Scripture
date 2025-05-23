@@ -1,14 +1,19 @@
 package org.scripture.scripture;
 
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.Inventory; // Restored
 import org.scripture.scripture.util.GuiUtils;
 
-import java.util.*;
+import java.util.Map;                // Restored
+import java.util.HashMap;            // Restored
+import java.util.Set;                // Restored
+import java.util.HashSet;            // Restored
+import java.util.Collections;        // Restored
+import java.util.UUID;               // Restored
 
 public final class Scripture extends JavaPlugin {
-    private final Map<UUID, Inventory> playerGui = new HashMap<>();
-    private final Set<UUID> using = new HashSet<>();
+    private final Map<UUID, Inventory> playerGui = new HashMap<>(); // Restored
+    private final Set<UUID> using = new HashSet<>(); // Restored
 
     @Override
     public void onEnable() {
@@ -57,8 +62,8 @@ public final class Scripture extends JavaPlugin {
     @Override
     public void onDisable() {
         // Clean up resources
-        playerGui.clear();
-        using.clear();
+        playerGui.clear(); // Restored
+        using.clear(); // Restored
 
         getLogger().info("Scripture plugin has been disabled.");
     }

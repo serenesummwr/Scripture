@@ -11,7 +11,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.scripture.scripture.Scripture;
+import org.scripture.scripture.Scripture; // Restored Scripture import
+// import org.scripture.scripture.holder.BookGuiHolder; // Removed BookGuiHolder import
 
 public class GuiUtils {
     // Constants for GUI
@@ -23,19 +24,20 @@ public class GuiUtils {
     /**
      * Opens the Paper-to-Coin GUI
      */
-    public static void openPaperToCoinGui(Scripture plugin, Player player) {
-        Inventory gui = Bukkit.createInventory(null, GUI_SIZE, GUI_TITLE);
+    public static void openPaperToCoinGui(Scripture plugin, Player player) { // Scripture plugin parameter restored
+        Inventory gui = Bukkit.createInventory(null, GUI_SIZE, GUI_TITLE); // Restored inventory creation
+
         // Fill with glass panes
         ItemStack pane = createGuiItem(Material.LIGHT_GRAY_STAINED_GLASS_PANE, " ");
         for (int i = 0; i < GUI_SIZE; i++) {
-            gui.setItem(i, pane);
+            gui.setItem(i, pane); // Fill all slots with panes
         }
         // Clear paper and coin slots
-        gui.clear(PAPER_SLOT);
-        gui.clear(COIN_SLOT);
+        gui.clear(PAPER_SLOT); // Clear specific slots
+        gui.clear(COIN_SLOT);  // Clear specific slots
 
+        plugin.registerPlayerGui(player.getUniqueId(), gui); // Restored registration line
         player.openInventory(gui);
-        plugin.registerPlayerGui(player.getUniqueId(), gui);
     }
 
     /**
