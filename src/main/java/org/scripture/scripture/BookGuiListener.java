@@ -73,56 +73,71 @@ public class BookGuiListener implements Listener {
             }
         } else {
             // COIN_SLOT logic
+            e.setCancelled(true); // Cancel event early for COIN_SLOT interactions
 
             if (click == ClickType.DOUBLE_CLICK) {
-                e.setCancelled(true);
+                // Already cancelled, but good to have explicit return
                 return;
             }
 
             ItemStack guiCoin = gui.getItem(GuiUtils.COIN_SLOT);
-            if (guiCoin == null) {
-                e.setCancelled(true);
-                return;
-            }
+            // If the coin slot is supposed to have a coin (e.g., paper is present)
+            // but somehow it's null, consumePaperAndRefill might restock it or confirm it should be empty.
+            // The main check for giving a coin will be based on consumePaperAndRefill's success.
 
             ItemStack cursor = e.getCursor();
-            // merge same coins
+
+            // Block placing other items into the coin slot
             if (cursor != null && cursor.getType() != Material.AIR) {
-                CustomStack cs = CustomStack.byItemStack(cursor);
-                if (cs != null && cs.getNamespacedID().equals("shop:coin")) {
-                    e.setCancelled(true);
-                    int current = cursor.getAmount();
-                    if (current < cursor.getMaxStackSize()) {
-                        cursor.setAmount(current + 1);
-                        schedule(() -> consumePaperAndRefill(gui), 1);
-                    } else {
-                        player.sendMessage(GuiUtils.colorize("&cYour coin stack is already full!"));
-                    }
+                CustomStack customCursor = CustomStack.byItemStack(cursor);
+                if (customCursor == null || !customCursor.getNamespacedID().equals("shop:coin")) {
+                    player.sendMessage(GuiUtils.colorize("&cYou can only interact with coins here."));
                     return;
                 }
             }
 
-            // block other items
-            if (cursor != null && cursor.getType() != Material.AIR) {
-                e.setCancelled(true);
-                player.sendMessage(GuiUtils.colorize("&cPlease place your current item before taking a coin!"));
+            // Handle SHIFT-CLICK first as it's a distinct action
+            if (click == ClickType.SHIFT_LEFT || click == ClickType.SHIFT_RIGHT) {
+                giveOneCoin(player, gui); // This will use the updated giveOneCoin with inventory check
                 return;
             }
 
-            // SHIFT-CLICK
-            if (action == InventoryAction.MOVE_TO_OTHER_INVENTORY) {
-                e.setCancelled(true);
-                giveOneCoin(player, gui);
-            }
-            // NORMAL CLICK
-            else if (action == InventoryAction.PICKUP_ALL || action == InventoryAction.PICKUP_ONE) {
-                e.setCancelled(true);
-                CustomStack cs = CustomStack.getInstance("shop:coin");
-                if (cs != null) {
-                    ItemStack single = cs.getItemStack().clone();
-                    single.setAmount(1);
-                    player.setItemOnCursor(single);
-                    schedule(() -> consumePaperAndRefill(gui), 1);
+            // Handle LEFT and RIGHT clicks for taking coins
+            if (click == ClickType.LEFT || click == ClickType.RIGHT) {
+                if (cursor == null || cursor.getType() == Material.AIR) {
+                    // Player's cursor is empty, try to take one coin
+                    if (consumePaperAndRefill(gui)) {
+                        CustomStack csCoin = CustomStack.getInstance("shop:coin");
+                        if (csCoin != null) {
+                            ItemStack singleCoin = csCoin.getItemStack().clone();
+                            singleCoin.setAmount(1);
+                            player.setItemOnCursor(singleCoin);
+                        } else {
+                            // This case should ideally not happen if consumePaperAndRefill succeeded
+                            // and implies an issue with getting the "shop:coin" item itself.
+                            plugin.getLogger().warning("Failed to get CustomStack for shop:coin even after successful paper consumption.");
+                        }
+                    } else {
+                        player.sendMessage(GuiUtils.colorize("&cNot enough paper!"));
+                    }
+                } else {
+                    // Player's cursor has a "shop:coin", try to stack
+                    CustomStack customCursor = CustomStack.byItemStack(cursor);
+                    if (customCursor != null && customCursor.getNamespacedID().equals("shop:coin")) {
+                        if (cursor.getAmount() < cursor.getMaxStackSize()) {
+                            if (consumePaperAndRefill(gui)) {
+                                cursor.setAmount(cursor.getAmount() + 1);
+                            } else {
+                                player.sendMessage(GuiUtils.colorize("&cNot enough paper for another coin!"));
+                            }
+                        } else {
+                            player.sendMessage(GuiUtils.colorize("&cYour coin stack is already full!"));
+                        }
+                    } else {
+                        // This case should be blocked by the check at the beginning of COIN_SLOT logic
+                        // but as a fallback:
+                        player.sendMessage(GuiUtils.colorize("&cPlease place your current item before taking a coin!"));
+                    }
                 }
             }
         }
@@ -158,28 +173,82 @@ public class BookGuiListener implements Listener {
     }
 
     private void giveOneCoin(Player player, Inventory gui) {
-        ItemStack coin = gui.getItem(GuiUtils.COIN_SLOT).clone();
-        coin.setAmount(1);
-        Map<Integer, ItemStack> leftover = player.getInventory().addItem(coin);
-        if (!leftover.isEmpty()) {
+        // First check if we have paper to consume
+        if (!hasPaperToConsume(gui)) {
+            player.sendMessage(GuiUtils.colorize("&cNot enough paper to get a coin!"));
+            return;
+        }
+
+        // Get the coin item that we would give
+        CustomStack cs = CustomStack.getInstance("shop:coin");
+        if (cs == null) {
+            plugin.getLogger().warning("Failed to get CustomStack for shop:coin in giveOneCoin.");
+            return;
+        }
+
+        ItemStack coinToGive = cs.getItemStack().clone();
+        coinToGive.setAmount(1);
+
+        // Check if inventory has space BEFORE consuming paper
+        if (!hasInventorySpace(player, coinToGive)) {
             player.sendMessage(GuiUtils.colorize("&cInventory is full!"));
+            return; // Don't consume paper if inventory is full
+        }
+
+        // Now it's safe to consume paper and give coin
+        if (consumePaperAndRefill(gui)) {
+            Map<Integer, ItemStack> leftover = player.getInventory().addItem(coinToGive);
+            if (!leftover.isEmpty()) {
+                // This should not happen since we checked space above, but as a failsafe
+                player.sendMessage(GuiUtils.colorize("&cUnexpected inventory issue!"));
+                plugin.getLogger().warning("Inventory check passed but addItem failed in giveOneCoin");
+            }
         } else {
-            consumePaperAndRefill(gui);
+            // This should not happen since we checked hasPaperToConsume above
+            player.sendMessage(GuiUtils.colorize("&cUnexpected paper consumption issue!"));
+            plugin.getLogger().warning("hasPaperToConsume passed but consumePaperAndRefill failed");
         }
     }
 
-    private void consumePaperAndRefill(Inventory gui) {
+    private boolean hasPaperToConsume(Inventory gui) {
         ItemStack paper = gui.getItem(GuiUtils.PAPER_SLOT);
-        if (paper != null && paper.getType() == Material.PAPER) {
+        return paper != null && paper.getType() == Material.PAPER && paper.getAmount() > 0;
+    }
+
+    private boolean hasInventorySpace(Player player, ItemStack item) {
+        // Create a copy of the item to test
+        ItemStack testItem = item.clone();
+
+        // Try to add the item to a simulated inventory state
+        Map<Integer, ItemStack> leftover = player.getInventory().addItem(testItem);
+
+        // If there's leftover, inventory is full
+        boolean hasSpace = leftover.isEmpty();
+
+        // Remove the test item we just added (if any was added)
+        if (hasSpace) {
+            player.getInventory().removeItem(testItem);
+        }
+
+        return hasSpace;
+    }
+
+    private boolean consumePaperAndRefill(Inventory gui) {
+        ItemStack paper = gui.getItem(GuiUtils.PAPER_SLOT);
+        if (paper != null && paper.getType() == Material.PAPER && paper.getAmount() > 0) {
+            // Paper was consumed
             if (paper.getAmount() > 1) {
                 paper.setAmount(paper.getAmount() - 1);
-                handleCoinInsertion(gui);
-            } else {
+                handleCoinInsertion(gui); // Refills coin slot
+            } else { // Last piece of paper
                 gui.clear(GuiUtils.PAPER_SLOT);
-                gui.clear(GuiUtils.COIN_SLOT);
+                gui.clear(GuiUtils.COIN_SLOT); // Clears coin slot as last paper is used
             }
+            return true; // Paper was consumed
         } else {
-            gui.clear(GuiUtils.COIN_SLOT);
+            // No paper, or paper item is somehow invalid
+            gui.clear(GuiUtils.COIN_SLOT); // Ensure coin slot is clear if no paper
+            return false; // No paper was consumed
         }
     }
 
