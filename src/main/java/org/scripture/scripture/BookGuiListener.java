@@ -26,8 +26,7 @@ public class BookGuiListener implements Listener {
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent e) {
-        if (!(e.getWhoClicked() instanceof Player)) return;
-        Player player = (Player) e.getWhoClicked();
+        if (!(e.getWhoClicked() instanceof Player player)) return;
         UUID uuid = player.getUniqueId();
 
         if (!plugin.isUsingGui(uuid)) return;
@@ -106,8 +105,9 @@ public class BookGuiListener implements Listener {
 
         if (slot == GuiUtils.PAPER_SLOT) {
             // placing paper
-            if (e.getCursor() != null && isPaper(e.getCursor())) {
-                schedule(() -> handleCoinInsertion(gui), 1);
+            e.getCursor();
+            if (isPaper(e.getCursor())) {
+                schedule(() -> handleCoinInsertion(gui));
             }
             // removing paper
             else if (isPaper(e.getCurrentItem())) {
@@ -115,7 +115,7 @@ public class BookGuiListener implements Listener {
                     if (gui.getItem(GuiUtils.PAPER_SLOT) == null) {
                         gui.clear(GuiUtils.COIN_SLOT);
                     }
-                }, 1);
+                });
             }
         } else {
             // COIN_SLOT logic
@@ -126,15 +126,10 @@ public class BookGuiListener implements Listener {
                 return;
             }
 
-            ItemStack guiCoin = gui.getItem(GuiUtils.COIN_SLOT);
-            // If the coin slot is supposed to have a coin (e.g., paper is present)
-            // but somehow it's null, consumePaperAndRefill might restock it or confirm it should be empty.
-            // The main check for giving a coin will be based on consumePaperAndRefill's success.
-
             ItemStack cursor = e.getCursor();
 
             // Block placing other items into the coin slot
-            if (cursor != null && cursor.getType() != Material.AIR) {
+            if (cursor.getType() != Material.AIR) {
                 CustomStack customCursor = CustomStack.byItemStack(cursor);
                 if (customCursor == null || !customCursor.getNamespacedID().equals("shop:coin")) {
                     player.sendMessage(GuiUtils.colorize("&cYou can only interact with coins here."));
@@ -150,7 +145,7 @@ public class BookGuiListener implements Listener {
 
             // Handle LEFT and RIGHT clicks for taking coins
             if (click == ClickType.LEFT || click == ClickType.RIGHT) {
-                if (cursor == null || cursor.getType() == Material.AIR) {
+                if (cursor.getType() == Material.AIR) {
                     // Player's cursor is empty, try to take one coin
                     if (consumePaperAndRefill(gui)) {
                         CustomStack csCoin = CustomStack.getInstance("shop:coin");
@@ -191,8 +186,7 @@ public class BookGuiListener implements Listener {
 
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent e) {
-        if (!(e.getPlayer() instanceof Player)) return;
-        Player player = (Player) e.getPlayer();
+        if (!(e.getPlayer() instanceof Player player)) return;
         UUID uuid = player.getUniqueId();
 
         if (!plugin.isUsingGui(uuid)) return;
@@ -302,9 +296,9 @@ public class BookGuiListener implements Listener {
         return item != null && item.getType() == Material.PAPER;
     }
 
-    private void schedule(Runnable task, int delay) {
+    private void schedule(Runnable task) {
         new BukkitRunnable() {
             @Override public void run() { task.run(); }
-        }.runTaskLater(plugin, delay);
+        }.runTaskLater(plugin, 1);
     }
 }
