@@ -26,7 +26,7 @@ public class PaperToCoinHolder implements InventoryHolder {
     public static final int PAPER_SLOT = 2;
     public static final int COIN_SLOT = 29;
     private static final int GUI_SIZE = 45;
-    private static final String GUI_TITLE = "";
+    private static final String GUI_TITLE = "\uEA6E§f웹";
 
     public PaperToCoinHolder(@NotNull Scripture plugin, @NotNull Player player) {
         this.plugin = plugin;
