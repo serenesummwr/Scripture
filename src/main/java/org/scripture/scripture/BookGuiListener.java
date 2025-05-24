@@ -9,6 +9,7 @@ import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent; // Added import
 import org.bukkit.inventory.Inventory; // Added import
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -146,6 +147,57 @@ public class BookGuiListener implements Listener {
         }
 
         holder.handleClose();
+    }
+
+    @EventHandler
+    public void onInventoryDrag(InventoryDragEvent e) {
+        if (!(e.getInventory().getHolder() instanceof PaperToCoinHolder holder)) {
+            return;
+        }
+
+        boolean allTargetedGuiSlotsArePaperSlot = true;
+        boolean anySlotInGui = false;
+
+        for (int rawSlot : e.getRawSlots()) {
+            // Check if this rawSlot is within the bounds of the custom GUI (top inventory)
+            if (rawSlot < holder.getInventory().getSize()) {
+                anySlotInGui = true;
+                if (rawSlot != PaperToCoinHolder.PAPER_SLOT) {
+                    allTargetedGuiSlotsArePaperSlot = false;
+                    break; // Found a non-PAPER_SLOT in the GUI
+                }
+            }
+        }
+
+        // If no slots in the GUI were part of the drag, do nothing.
+        if (!anySlotInGui) {
+            return;
+        }
+
+        // If dragging to slots other than PAPER_SLOT (or a mix including non-PAPER_SLOTs) in the GUI, cancel.
+        if (!allTargetedGuiSlotsArePaperSlot) {
+            e.setCancelled(true);
+            return;
+        }
+
+        // At this point, all targeted GUI slots (if any) are PAPER_SLOT.
+        // Now check if the item being dragged is paper.
+        // We use e.getOldCursor() as it represents the stack of items the player started dragging.
+        if (!PaperToCoinHolder.isPaper(e.getOldCursor())) {
+            e.setCancelled(true);
+            return;
+        }
+
+        // If all checks pass:
+        // 1. All targeted GUI slots are PAPER_SLOT.
+        // 2. The item being dragged is paper.
+        // Then the event is allowed (not cancelled).
+        // We need to schedule the coin insertion logic if the PAPER_SLOT was actually affected.
+        // e.getInventorySlots() gives the set of slot IDs in the *top inventory* that are affected by the drag.
+        if (e.getInventorySlots().contains(PaperToCoinHolder.PAPER_SLOT)) {
+            scheduleTask(holder::handleCoinInsertion);
+        }
+        // If e.setCancelled(true) was not called, the event is implicitly allowed.
     }
 
     private void handlePaperSlotClick(InventoryClickEvent e, PaperToCoinHolder holder) {
