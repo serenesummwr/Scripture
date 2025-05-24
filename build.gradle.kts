@@ -33,15 +33,13 @@ repositories {
 }
 
 dependencies {
-    // Other Dependencies
+    // Paper development bundle
     paperweight.paperDevBundle("1.21.5-R0.1-SNAPSHOT")
-    compileOnly("io.papermc.paper:paper-api:1.21.5-R0.1-SNAPSHOT") // Explicit Paper API dependency
+    compileOnly("io.papermc.paper:paper-api:1.21.5-R0.1-SNAPSHOT")
 
+    // External plugin APIs
     compileOnly("dev.lone:api-itemsadder:4.0.10")
-
-    // Compile-only ProtocolLib
     compileOnly("com.comphenix.protocol:ProtocolLib:5.3.0")
-
 }
 
 val targetJavaVersion = 21
@@ -67,4 +65,17 @@ tasks.processResources {
     filesMatching("plugin.yml") {
         expand(props)
     }
+}
+
+// === ✅ Automatically copy the built plugin jar to your server's plugins folder ===
+tasks.register<Copy>("copyPluginJar") {
+    dependsOn(tasks.named("shadowJar"))
+
+    val outputJar = layout.buildDirectory.file("libs/${project.name}-${project.version}-all.jar")
+    from(outputJar)
+    into("/Users/natthapoomsaengkaew/Desktop/Server/plugins")
+}
+
+tasks.named("build") {
+    dependsOn("copyPluginJar")
 }
