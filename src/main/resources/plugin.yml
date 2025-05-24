@@ -3,3 +3,22 @@ version: '1.0-SNAPSHOT'
 main: org.scripture.scripture.Scripture
 api-version: '1.21'
 authors: [ serenesummwr ]
+commands:
+  scripture:
+    description: Main command for the Scripture plugin.
+    aliases: [scr]
+    permission: scripture.use # Base permission for /scripture if other subcommands are added later
+    permission-message: You do not have permission to use this command.
+    subcommands:
+      reload:
+        description: Reloads the Scripture plugin's configuration.
+        usage: /scripture reload
+        permission: scripture.reload
+        permission-message: You do not have permission to reload the plugin.
+permissions:
+  scripture.use: # Optional: if you want a base permission for /scripture itself
+    description: Allows access to base Scripture commands.
+    default: true
+  scripture.reload:
+    description: Allows reloading the Scripture plugin.
+    default: op
